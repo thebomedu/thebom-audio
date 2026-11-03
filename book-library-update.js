@@ -10,10 +10,11 @@
   }
   function stepsFromModal(){
     const rows=[...document.querySelectorAll('#bomStepRows .bom-step-row')];
-    return rows.map(r=>({name:r.querySelector('.bom-name').value.trim(),desc:r.querySelector('.bom-desc').value.trim(),page:r.querySelector('.bom-page').value.trim()}));
+    return rows.map(r=>({...r._bomOriginalStep,name:r.querySelector('.bom-name').value.trim(),desc:r.querySelector('.bom-desc').value.trim(),page:r.querySelector('.bom-page').value.trim()}));
   }
   window.bomStepRow=function(s={name:'',desc:'',page:''}){
     const div=document.createElement('div');div.className='bom-step-row item';
+    div._bomOriginalStep={...s};
     div.innerHTML='<div class="row between"><b>학습 단계</b><button type="button" class="btn danger" onclick="this.closest(\'.bom-step-row\').remove()">삭제</button></div><div class="field"><label>단계 제목</label><input class="bom-name" placeholder="예: 동시통역 훈련"></div><div class="field"><label>세부 학습 안내</label><textarea class="bom-desc" rows="3" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px" placeholder="한 줄씩 학습 방법을 입력하세요"></textarea></div><div class="field"><label>페이지 / 학습 범위</label><input class="bom-page" placeholder="예: p.4~6"></div>';
     div.querySelector('.bom-name').value=s.name||'';
     div.querySelector('.bom-desc').value=s.desc||'';
