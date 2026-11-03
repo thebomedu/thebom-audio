@@ -97,4 +97,7 @@ function matBookChanged(){let b=getBook(document.getElementById('matBook')?.valu
 function matUnitChanged(){let b=document.getElementById('matBook')?.value,u=Number(document.getElementById('matUnit')?.value),m=(cache.materials||[]).find(x=>x.book_id===b&&x.unit===u)||{};for(let [id,k] of [['matWord','word_url'],['matReading','reading_url'],['matClasscard','classcard_url'],['matPublisher','publisher_url']])document.getElementById(id).value=m[k]||''}
 async function saveMaterial(){let book_id=document.getElementById('matBook').value,unit=Number(document.getElementById('matUnit').value);if(!book_id||!unit)return msg('교재와 Unit을 선택해 주세요.');let v={book_id,unit};for(let [id,k] of [['matWord','word_url'],['matReading','reading_url'],['matClasscard','classcard_url'],['matPublisher','publisher_url']]){let val=document.getElementById(id).value.trim();if(val&&!/^https:\/\//i.test(val))return msg('링크는 https:// 로 시작해야 합니다.');v[k]=val||null}try{let {error}=await sb.from('materials').upsert(v,{onConflict:'book_id,unit'});if(error)throw error;await loadData();msg('Unit 자료를 저장했습니다.');render()}catch(e){fail(e)}}
 start().catch(e=>{console.error(e);app.innerHTML=`<div class="notice">앱 시작 오류: ${E(e.message)}</div>`});
-</script></body></html>
+</script>
+ <script src="step-editor.js"></script>
+</body>
+</html>
