@@ -40,10 +40,10 @@
     byId('bomUnitCopy').onclick=()=>{collect();const from=Number(byId('bomUnitCopyFrom').value);if(!confirm('Unit '+from+'의 학습 과정을 복사할까요? 저장 전까지 적용되지 않습니다.'))return;draft=effective(from);draw()};
     byId('bomUnitAdd').onclick=()=>{collect();draft.push({name:'',desc:'',page:'',kind:''});draw()};
     byId('bomUnitClose').onclick=()=>wrap.remove();
-    byId('bomUnitRestore').onclick=async()=>{if(progressExists(unit)&&JSON.stringify(effective(unit).map(s=>s.name))!==JSON.stringify(defaultSteps().map(s=>s.name)))return alert('이 Unit에 학생 학습 기록이 있어 단계 구성이 달라지는 기본 과정 복원을 제한합니다.');if(!confirm('이 Unit을 교재 기본 과정으로 복원할까요?'))return;try{const {error}=await sb.from('book_unit_steps').delete().eq('book_id',bookId).eq('unit',unit);if(error)throw error;await loadData();changeUnit();alert('교재 기본 과정으로 복원했습니다.')}catch(e){alert('저장할 수 없습니다. Unit별 학습 과정 테이블이 배포됐는지 확인해 주세요.\n'+e.message)}};
+    byId('bomUnitRestore').onclick=async()=>{if(progressExists(unit)&&JSON.stringify(effective(unit).map(s=>({name:s.name,kind:s.kind})))!==JSON.stringify(defaultSteps().map(s=>({name:s.name,kind:s.kind}))))return alert('이 Unit에 학생 학습 기록이 있어 단계 구성이 달라지는 기본 과정 복원을 제한합니다.');if(!confirm('이 Unit을 교재 기본 과정으로 복원할까요?'))return;try{const {error}=await sb.from('book_unit_steps').delete().eq('book_id',bookId).eq('unit',unit);if(error)throw error;await loadData();changeUnit();alert('교재 기본 과정으로 복원했습니다.')}catch(e){alert('저장할 수 없습니다. Unit별 학습 과정 테이블이 배포됐는지 확인해 주세요.\n'+e.message)}};
     byId('bomUnitSave').onclick=async()=>{
       collect();if(!draft.length||draft.some(x=>!x.name))return alert('모든 단계 이름을 입력해 주세요.');
-      if(progressExists(unit)&&JSON.stringify(draft.map(s=>s.name))!==JSON.stringify(original.map(s=>s.name)))return alert('이미 학생의 학습 기록이 있는 Unit은 단계 수·순서·이름 변경을 제한합니다. 설명과 페이지는 수정할 수 있습니다.');
+      if(progressExists(unit)&&JSON.stringify(draft.map(s=>({name:s.name,kind:s.kind})))!==JSON.stringify(original.map(s=>({name:s.name,kind:s.kind}))))return alert('이미 학생의 학습 기록이 있는 Unit은 단계 수·순서·이름·연결 유형 변경을 제한합니다. 설명과 페이지는 수정할 수 있습니다.');
       try{const {error}=await sb.from('book_unit_steps').upsert({book_id:bookId,unit,steps:draft},{onConflict:'book_id,unit'});if(error)throw error;await loadData();changeUnit();alert('Unit '+unit+' 학습 과정이 저장됐습니다.')}catch(e){alert('저장할 수 없습니다. Unit별 학습 과정 테이블이 배포됐는지 확인해 주세요.\n'+e.message)}
     };
     changeUnit();
