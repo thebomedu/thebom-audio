@@ -41,3 +41,23 @@ export function saveDailyRecord(d,studentId,date,input){
  Object.assign(row,{units:clone(input.units),homework:input.homework,wordScore:input.wordScore,wordMax:input.wordMax,note:input.note,updatedAt:new Date().toISOString()});return row;
 }
 export function dailySummary(d,studentId,month){const rows=(d.dailyRecords||[]).filter(x=>x.studentId===studentId&&x.date.startsWith(month)).sort((a,b)=>a.date.localeCompare(b.date)),scores=rows.filter(x=>x.wordScore!==null);return {days:rows.length,homeworkO:rows.filter(x=>x.homework==='O').length,homeworkX:rows.filter(x=>x.homework==='X').length,homeworkMissing:rows.filter(x=>x.homework===null).length,testCount:scores.length,wordAverage:scores.length?Math.round(scores.reduce((sum,x)=>sum+x.wordScore/x.wordMax*100,0)/scores.length):null,rows:clone(rows)}};
+
+export function isClassDay(d,student,date){if(!student.active||student.entryDate&&date<student.entryDate)return false;if(!Array.isArray(student.schedule))return null;const day=new Date(date+'T12:00:00+09:00').getUTCDay();return student.schedule.some(x=>x.weekday===day)}
+export function classTimes(student,date){const day=new Date(date+'T12:00:00+09:00').getUTCDay();return (student.schedule||[]).filter(x=>x.weekday===day).sort((a,b)=>a.start.localeCompare(b.start))}
+export function saveStudentDetails(d,id,input){
+ const existing=d.students.find(x=>x.id===id);if(!existing)throw Error('학생을 찾을 수 없습니다.');
+ const phoneOk=x=>!x||/^[0-9+()\-\s]{7,25}$/.test(x)&&x.replace(/\D/g,'').length>=7;
+ if(!phoneOk(input.phone)||!phoneOk(input.guardianPhone)||!phoneOk(input.guardianPhone2))throw Error('전화번호 형식을 확인해 주세요.');
+ if(input.entryDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(input.entryDate)||!Number.isFinite(Date.parse(input.entryDate))||new Date(input.entryDate+'T00:00:00Z').toISOString().slice(0,10)!==input.entryDate))throw Error('입학일을 확인해 주세요.');
+ if(input.schedule!==undefined){if(!Array.isArray(input.schedule)||input.schedule.length>21)throw Error('수업시간표를 확인해 주세요.');for(const s of input.schedule){if(!Number.isInteger(s.weekday)||s.weekday<0||s.weekday>6||!/^([01]\d|2[0-3]):[0-5]\d$/.test(s.start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(s.end)||s.start>=s.end)throw Error('수업 종료시간은 시작시간 이후로 지정해 주세요.');}for(let i=0;i<input.schedule.length;i++)for(let j=i+1;j<input.schedule.length;j++){const a=input.schedule[i],b=input.schedule[j];if(a.weekday===b.weekday&&a.start<b.end&&b.start<a.end)throw Error('같은 요일의 수업시간이 겹칩니다.');}}
+ const b=input.billing;if(b?.enabled&&(!Number.isInteger(b.day)||b.day<1||b.day>31||!Number.isInteger(b.amount)||b.amount<1||b.amount>10000000||!/^\d{4}-(0[1-9]|1[0-2])$/.test(b.startMonth)))throw Error('자동 청구일(1~31일), 수강료, 시작 월을 확인해 주세요.');
+ Object.assign(existing,{entryDate:input.entryDate||'',phone:input.phone||'',guardianName:input.guardianName||'',guardianRelation:input.guardianRelation||'',guardianPhone:input.guardianPhone||'',guardianPhone2:input.guardianPhone2||'',...(input.schedule===undefined?{}:{schedule:clone(input.schedule)}),billing:clone(b||{enabled:false})});
+}
+export function billingDueDate(month,day){const [year,m]=month.split('-').map(Number),last=new Date(Date.UTC(year,m,0)).getUTCDate();return month+'-'+String(Math.min(day,last)).padStart(2,'0')}
+export function generateDueInvoices(d,asOf=today()){
+ let count=0;const current=asOf.slice(0,7);
+ for(const s of d.students){const b=s.billing;if(!s.active||!b?.enabled||!Number.isInteger(b.amount)||b.amount<=0||!Number.isInteger(b.day)||b.day<1||b.day>31||!/^\d{4}-(0[1-9]|1[0-2])$/.test(b.startMonth)||s.entryDate&&s.entryDate>asOf)continue;
+  let m=b.startMonth;for(let i=0;i<120&&m<=current;i++){const due=billingDueDate(m,b.day);if(due<=asOf&&(!s.entryDate||due>=s.entryDate)&&!d.invoices.some(x=>x.studentId===s.id&&x.month===m)){d.invoices.push({id:uid(),studentId:s.id,month:m,amount:b.amount,due,memo:'학생별 월 수강료 · 자동 청구',payments:[],cancelled:false,source:'scheduled',createdAt:new Date().toISOString()});count++}const [y,n]=m.split('-').map(Number);m=n===12?(y+1)+'-01':y+'-'+String(n+1).padStart(2,'0')}
+ }
+ return count;
+}
