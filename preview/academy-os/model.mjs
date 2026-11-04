@@ -50,7 +50,7 @@ export function saveStudentDetails(d,id,input){
  if(!phoneOk(input.phone)||!phoneOk(input.guardianPhone)||!phoneOk(input.guardianPhone2))throw Error('전화번호 형식을 확인해 주세요.');
  if(input.entryDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(input.entryDate)||!Number.isFinite(Date.parse(input.entryDate))||new Date(input.entryDate+'T00:00:00Z').toISOString().slice(0,10)!==input.entryDate))throw Error('입학일을 확인해 주세요.');
  if(input.schedule!==undefined){if(!Array.isArray(input.schedule)||input.schedule.length>21)throw Error('수업시간표를 확인해 주세요.');for(const s of input.schedule){if(!Number.isInteger(s.weekday)||s.weekday<0||s.weekday>6||!/^([01]\d|2[0-3]):[0-5]\d$/.test(s.start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(s.end)||s.start>=s.end)throw Error('수업 종료시간은 시작시간 이후로 지정해 주세요.');}for(let i=0;i<input.schedule.length;i++)for(let j=i+1;j<input.schedule.length;j++){const a=input.schedule[i],b=input.schedule[j];if(a.weekday===b.weekday&&a.start<b.end&&b.start<a.end)throw Error('같은 요일의 수업시간이 겹칩니다.');}}
- const b=input.billing;if(b?.enabled&&(!Number.isInteger(b.day)||b.day<1||b.day>31||!Number.isInteger(b.amount)||b.amount<1||b.amount>10000000||!/^\d{4}-(0[1-9]|1[0-2])$/.test(b.startMonth)))throw Error('자동 청구일(1~31일), 수강료, 시작 월을 확인해 주세요.');
+ const b=input.billing;if(b?.paymentMethod&&!['unset','payssam','cash','transfer'].includes(b.paymentMethod))throw Error('납부방법을 확인해 주세요.');if(b?.enabled&&(!Number.isInteger(b.day)||b.day<1||b.day>31||!Number.isInteger(b.amount)||b.amount<1||b.amount>10000000||!/^\d{4}-(0[1-9]|1[0-2])$/.test(b.startMonth)))throw Error('자동 청구일(1~31일), 수강료, 시작 월을 확인해 주세요.');
  Object.assign(existing,{entryDate:input.entryDate||'',phone:input.phone||'',guardianName:input.guardianName||'',guardianRelation:input.guardianRelation||'',guardianPhone:input.guardianPhone||'',guardianPhone2:input.guardianPhone2||'',...(input.schedule===undefined?{}:{schedule:clone(input.schedule)}),billing:clone(b||{enabled:false})});
 }
 export function billingDueDate(month,day){const [year,m]=month.split('-').map(Number),last=new Date(Date.UTC(year,m,0)).getUTCDate();return month+'-'+String(Math.min(day,last)).padStart(2,'0')}
@@ -60,4 +60,16 @@ export function generateDueInvoices(d,asOf=today()){
   let m=b.startMonth;for(let i=0;i<120&&m<=current;i++){const due=billingDueDate(m,b.day);if(due<=asOf&&(!s.entryDate||due>=s.entryDate)&&!d.invoices.some(x=>x.studentId===s.id&&x.month===m)){d.invoices.push({id:uid(),studentId:s.id,month:m,amount:b.amount,due,memo:'학생별 월 수강료 · 자동 청구',payments:[],cancelled:false,source:'scheduled',createdAt:new Date().toISOString()});count++}const [y,n]=m.split('-').map(Number);m=n===12?(y+1)+'-01':y+'-'+String(n+1).padStart(2,'0')}
  }
  return count;
+}
+
+export function tuitionNoticeState(d,invoice,asOf=today()){
+ const s=d.students.find(x=>x.id===invoice.studentId),method=invoice.noticeMethod||s?.billing?.paymentMethod||'unset',balance=invoice.amount-paid(invoice),draft=d.notifications.find(x=>x.invoiceId===invoice.id&&x.purpose==='tuition_reminder');
+ const reason=invoice.cancelled?'취소된 청구':balance<=0?'수납 완료':!s?.active?'재원 아님':method==='payssam'?'결제선생 안내 대상':!['cash','transfer'].includes(method)?'납부방법 미설정':invoice.due>asOf?'청구일 전':!s.guardianPhone?'보호자 연락처 미등록':draft?'안내 초안 준비됨':'';
+ return {method,balance,draft,reason,eligible:!reason};
+}
+export function prepareTuitionNotices(d,ids,asOf=today(),bodies={}){
+ const unique=[...new Set(ids)];if(!unique.length)throw Error('안내할 청구를 선택해 주세요.');const prepared=[];
+ // Validate the entire selection before changing state.
+ const rows=unique.map(id=>{if(bodies[id]!==undefined&&(typeof bodies[id]!=='string'||bodies[id].length>3000))throw Error('안내 문구는 3000자 이내로 입력해 주세요.');const invoice=d.invoices.find(x=>x.id===id);if(!invoice)throw Error('청구를 찾을 수 없습니다.');const state=tuitionNoticeState(d,invoice,asOf);if(!state.eligible&&!state.draft)throw Error(state.reason);if(state.draft&&!state.eligible){if(state.reason==='안내 초안 준비됨')return {invoice,state,existing:true};throw Error(state.reason)}return {invoice,state}});
+ for(const {invoice,state,existing} of rows){if(existing){prepared.push(state.draft.id);continue}const s=d.students.find(x=>x.id===invoice.studentId),body=bodies[invoice.id]?.trim()||`안녕하세요, 더봄어학원입니다. 🌿\n${s.name} 학생의 ${invoice.month} 수강료를 안내드립니다.\n\n납부 금액: ${state.balance.toLocaleString('ko-KR')}원\n납부 방법: ${state.method==='cash'?'현금':'계좌이체'}\n납부 기한: ${invoice.due}\n\n이미 납부하셨다면 확인을 위해 학원으로 연락 부탁드립니다. 감사합니다.`;if(body.length>3000)throw Error('안내 문구는 3000자 이내로 입력해 주세요.');const id=uid();d.notifications.push({id,studentId:s.id,invoiceId:invoice.id,purpose:'tuition_reminder',type:'현금·계좌이체 수강료 안내',body,status:'draft',deliveryStatus:'integration_pending',at:new Date().toISOString()});prepared.push(id)}return prepared;
 }
