@@ -108,3 +108,13 @@ Sandbox 키를 받기 전 운영 URL 또는 임의의 API 규격으로 구현하
 - 결제선생 개발자센터: https://developers.payssam.kr/
 - 카카오 비즈메시지 공식 소개: https://kakaoenterprise.com/wp-content/uploads/2022/07/비즈메시지_소개자료_v1.2_rev.pdf
 - 인포뱅크 알림톡 가이드 (제공사 사례, 선정 확정 아님): https://infobank-guide.gitbook.io/bizgo/service/channel/kakaobiz/notice
+
+## 2026-11-04 원장 확인 반영
+- 결제선생: 현재 사용 중. API 연동 상담 신청 완료. 제휴 승인 및 Sandbox 키 발급은 아직 확인되지 않음.
+- 학원 카카오톡 채널: http://pf.kakao.com/_Cxlxnvn (원장 제공). 비즈니스 인증·공개 상태는 관리자 확인 필요.
+- 기존 알림톡 발송 대행사: 없음.
+- 우선 검토 업체: SOLAPI. 카카오 채널 연동, 템플릿 등록·검수, 메시지 발송 API를 공식 제공함. 가입·계약·충전·채널 등록은 미실행이며 최종 선정 전 원장 확인 필요.
+- 다음 원장 준비: SOLAPI 계정 준비 및 카카오 채널의 비즈니스 인증/공개 상태 확인. 채널 연결 인증과 약관 동의는 원장이 직접 완료.
+- API Key/Secret은 채팅이나 저장소에 전달하지 않음. 서버 비밀 설정 경로를 준비한 뒤 입력.
+- 결제선생 답변 대기 중에도 알림톡 문구·테스트 설계는 계속 진행 가능. 실발송은 템플릿 승인과 테스트 수신자 지정 후에만 별도 실행.
+- 공식 자료: https://guide.solapi.com/f32847ef-390e-4d1f-a724-e2d019d7901e 및 https://solapi.com/developers/api/kakao
