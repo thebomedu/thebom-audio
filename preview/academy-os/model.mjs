@@ -73,3 +73,26 @@ export function prepareTuitionNotices(d,ids,asOf=today(),bodies={}){
  const rows=unique.map(id=>{if(bodies[id]!==undefined&&(typeof bodies[id]!=='string'||bodies[id].length>3000))throw Error('안내 문구는 3000자 이내로 입력해 주세요.');const invoice=d.invoices.find(x=>x.id===id);if(!invoice)throw Error('청구를 찾을 수 없습니다.');const state=tuitionNoticeState(d,invoice,asOf);if(!state.eligible&&!state.draft)throw Error(state.reason);if(state.draft&&!state.eligible){if(state.reason==='안내 초안 준비됨')return {invoice,state,existing:true};throw Error(state.reason)}return {invoice,state}});
  for(const {invoice,state,existing} of rows){if(existing){prepared.push(state.draft.id);continue}const s=d.students.find(x=>x.id===invoice.studentId),body=bodies[invoice.id]?.trim()||`안녕하세요, 더봄어학원입니다. 🌿\n${s.name} 학생의 ${invoice.month} 수강료를 안내드립니다.\n\n납부 금액: ${state.balance.toLocaleString('ko-KR')}원\n납부 방법: ${state.method==='cash'?'현금':'계좌이체'}\n납부 기한: ${invoice.due}\n\n이미 납부하셨다면 확인을 위해 학원으로 연락 부탁드립니다. 감사합니다.`;if(body.length>3000)throw Error('안내 문구는 3000자 이내로 입력해 주세요.');const id=uid();d.notifications.push({id,studentId:s.id,invoiceId:invoice.id,purpose:'tuition_reminder',type:'현금·계좌이체 수강료 안내',body,status:'draft',deliveryStatus:'integration_pending',at:new Date().toISOString()});prepared.push(id)}return prepared;
 }
+
+export function materialURL(value){
+ if(!value?.trim())return '';let url;try{url=new URL(value.trim())}catch{throw Error('자료 주소를 확인해 주세요.');}
+ if(url.protocol!=='https:'||url.username||url.password)throw Error('자료 주소는 로그인 정보가 없는 HTTPS 주소를 입력해 주세요.');
+ if(url.hostname==='github.com'&&/^\/[^/]+\/[^/]+\/blob\//.test(url.pathname)){url.hostname='raw.githubusercontent.com';url.pathname=url.pathname.replace('/blob/','/');}
+ return url.href;
+}
+export function saveMaterial(d,bookId,unit,input,uploads={}){
+ const b=book(d,bookId);if(!b||!Number.isInteger(unit)||unit<1||unit>b.units)throw Error('교재와 Unit을 확인해 주세요.');
+ const previous=d.materials.find(x=>x.bookId===bookId&&x.unit===unit),row={...previous,bookId,unit};
+ for(const kind of ['word','reading']){const key=kind+'Url',data=kind+'Data',page=kind+'PageUrl';let url=materialURL(input[key]||''),pageUrl=materialURL(input[page]||'');
+  // HTML resource pages cannot be used as audio sources.
+  if(url&&/\.(?:html?|aspx?|php)$/i.test(new URL(url).pathname)){pageUrl=url;url='';}
+  if(url!==(previous?.[key]||''))delete row[data];
+  row[key]=url;row[page]=pageUrl;
+  if(Object.hasOwn(uploads,data)){if(uploads[data]){if(!/^data:audio\/[a-z0-9.+-]+;base64,/i.test(uploads[data]))throw Error('지원하는 음원 파일을 선택해 주세요.');row[data]=uploads[data];row[key]='';}else delete row[data];}
+ }
+ row.classcardUrl=materialURL(input.classcardUrl||'');
+ if(previous)Object.assign(previous,row);else d.materials.push(row);
+ // Deleted upload properties must also be removed from the existing object.
+ if(previous)for(const kind of ['word','reading'])if(!Object.hasOwn(row,kind+'Data'))delete previous[kind+'Data'];
+ return row;
+}
