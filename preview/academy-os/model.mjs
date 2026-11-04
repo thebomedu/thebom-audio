@@ -130,3 +130,13 @@ export function prepareAnnouncementNotices(d,id,studentIds,mode,url=''){const it
 
 export function trashBook(d,id){const b=book(d,id);if(!b||b.deletedAt)throw Error('사용 중인 교재 목록에서 선택해 주세요.');if(d.assignments.some(a=>a.bookId===id&&!a.archived))throw Error('현재 학생에게 배정된 교재입니다. 학습·진도에서 해당 배정을 보관한 뒤 삭제해 주세요. 기존 학습 기록은 유지됩니다.');b.archivedBeforeDeletion=!!b.archived;b.archived=true;b.deletedAt=new Date().toISOString();return b}
 export function restoreBook(d,id){const b=book(d,id);if(!b?.deletedAt)throw Error('휴지통의 교재를 선택해 주세요.');b.archived=!!b.archivedBeforeDeletion;delete b.deletedAt;delete b.archivedBeforeDeletion;return b}
+
+export function removeCategory(d,id){
+ const all=d.categories||[],root=all.find(c=>c.id===id&&!c.deletedAt);if(!root)throw Error('카테고리를 찾을 수 없습니다.');
+ const group=all.filter(c=>!c.deletedAt&&(c.id===id||c.parentId===id)),labels=group.map(c=>c.parentId?(all.find(p=>p.id===c.parentId)?.name+' / '+c.name):c.name);
+ root.removedBookCategories=d.books.filter(b=>labels.includes(b.category)).map(b=>({id:b.id,category:b.category}));
+ for(const b of d.books)if(labels.includes(b.category))b.category='미분류';
+ for(const c of group){c.deletedAt=new Date().toISOString();c.deletionGroup=id}
+}
+export function recoverCategory(d,id){const root=d.categories?.find(c=>c.id===id&&c.deletedAt);if(!root)throw Error('삭제한 카테고리가 없습니다.');const group=d.categories.filter(c=>c.deletionGroup===id);for(const c of group){if(d.categories.some(x=>!x.deletedAt&&x.name===c.name&&(x.parentId||null)===(c.parentId||null)))throw Error('같은 이름의 카테고리가 있어 복원할 수 없습니다.');if(c.parentId&&!group.some(x=>x.id===c.parentId)&&!d.categories.some(x=>x.id===c.parentId&&!x.deletedAt))throw Error('상위 카테고리를 먼저 복원해 주세요.')}for(const b of root.removedBookCategories||[]){const current=d.books.find(x=>x.id===b.id);if(current?.category==='미분류')current.category=b.category}for(const c of group){delete c.deletedAt;delete c.deletionGroup}delete root.removedBookCategories}
+export function setAssignmentArchived(d,id,archived){const a=d.assignments.find(x=>x.id===id);if(!a)throw Error('배정을 찾을 수 없습니다.');if(!archived){if(book(d,a.bookId)?.deletedAt)throw Error('교재 휴지통에서 교재를 먼저 복원해 주세요.');if(d.assignments.some(x=>x.id!==id&&x.studentId===a.studentId&&x.bookId===a.bookId&&!x.archived))throw Error('이미 같은 교재가 배정되어 있습니다.')}a.archived=archived}
