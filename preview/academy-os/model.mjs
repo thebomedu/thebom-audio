@@ -145,3 +145,8 @@ export function setAssignmentArchived(d,id,archived){const a=d.assignments.find(
 
 export function previousHomework(d,studentId,date){return (d.dailyRecords||[]).filter(r=>r.studentId===studentId&&r.date<date&&(r.wordHomeworkTask?.trim()||r.personalHomeworkTask?.trim())).sort((a,b)=>b.date.localeCompare(a.date))[0]||null}
 export function homeworkStatus(row){if(row.wordHomework!=null||row.personalHomework!=null){if(row.wordHomework==='X'||row.personalHomework==='X')return 'X';if(row.wordHomework==='O'&&row.personalHomework==='O')return 'O';return null}return row.homework??null}
+
+// Scheduled study is separate from preserved progress and completed review.
+export function assignmentOnDate(d,a,date=today()){const s=d.students.find(s=>s.id===a.studentId);if(!s?.active||a.archived||book(d,a.bookId)?.deletedAt||isClassDay(d,s,date)===false)return false;const day=new Date(date+'T12:00:00+09:00').getUTCDay();return !a.days?.length||a.days.includes(day)}
+export function studentCanStudy(d,a,unit,date=today()){return assignmentOnDate(d,a,date)&&Number.isInteger(unit)&&unit===nextUnit(d,a)&&!progress(d,a,unit)?.approvedAt}
+export function studentUnits(d,a,reviewOnly=false){const current=nextUnit(d,a);return Array.from({length:book(d,a.bookId).units-a.start+1},(_,i)=>i+a.start).filter(u=>progress(d,a,u)?.approvedAt||!reviewOnly&&u===current)}
