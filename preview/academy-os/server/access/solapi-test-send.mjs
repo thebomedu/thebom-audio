@@ -1,7 +1,8 @@
+import {formatAttendanceTime} from '../../model.mjs';
 import {loadSolapiCredentials,verifySolapi,solapiAuthorization,seal,unseal} from './solapi-connection.mjs';import {solapiConfig} from '../../solapi-config.mjs';
 export function testMessage(template,to,now=new Date()){
  if(!/^010\d{8}$/.test(to))throw Error('invalid_phone');if(template?.type!=='in'||template.id!==solapiConfig.templates.in.id||template.status!=='APPROVED')throw Error('template_not_approved');
- const when=now.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',hour12:false}),variables={'#{학생명}':'더봄 테스트학생','#{등원일시}':when};let text=template.content;if(typeof text!=='string'||!text.trim())throw Error('invalid_template');for(const [k,v] of Object.entries(variables))text=text.replaceAll(k,v);if(/#\{[^}]+\}/.test(text))throw Error('unsupported_variables');if(template.buttons?.length)throw Error('unexpected_buttons');return {to,text,variables,templateId:template.id,channelId:solapiConfig.channelId};
+ const when=formatAttendanceTime(now),variables={'#{학생명}':'더봄 테스트학생','#{등원일시}':when};let text=template.content;if(typeof text!=='string'||!text.trim())throw Error('invalid_template');for(const [k,v] of Object.entries(variables))text=text.replaceAll(k,v);if(/#\{[^}]+\}/.test(text))throw Error('unsupported_variables');if(template.buttons?.length)throw Error('unexpected_buttons');return {to,text,variables,templateId:template.id,channelId:solapiConfig.channelId};
 }
 export function testPayload(plan){return {messages:[{to:plan.to,type:'ATA',kakaoOptions:{pfId:plan.channelId,templateId:plan.templateId,variables:plan.variables,disableSms:true}}],allowDuplicates:false,showMessageList:true}}
 const reply=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'private, no-store'}});
