@@ -1,0 +1,2 @@
+import {env} from 'cloudflare:workers';import {getChatGPTUser} from '../../chatgpt-auth';import {resolveAccess} from '../../../lib/academy/access.mjs';import {submitStudentScore} from '../../../lib/academy/student-score.mjs';
+export async function POST(request:Request){const access=await resolveAccess(env.DB,await getChatGPTUser(),env.ACADEMY_OWNER_EMAIL);return submitStudentScore(request,env.DB,access,env.BUCKET)}
